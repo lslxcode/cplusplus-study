@@ -1,4 +1,5 @@
 #pragma once
+
 #include <vector>
 #include <queue>
 #include <atomic>
@@ -7,41 +8,41 @@
 #include <thread>
 #include <functional>
 #include <future>
-//ËùÓĞ¶ÔÏóµÄ³õÊ¼»¯·½Ê½¾ù²ÉÓÃÁË{}£¬¶ø²»ÔÙÊ¹ÓÃ() ·½Ê½£¬ÒòÎª·ç¸ñ²»¹»Ò»ÖÂÇÒÈİÒ×³ö´í
+//æ‰€æœ‰å¯¹è±¡çš„åˆå§‹åŒ–æ–¹å¼å‡é‡‡ç”¨äº†{}ï¼Œè€Œä¸å†ä½¿ç”¨() æ–¹å¼ï¼Œå› ä¸ºé£æ ¼ä¸å¤Ÿä¸€è‡´ä¸”å®¹æ˜“å‡ºé”™
 
 namespace std {
 #define MAX_NUM_THREADPOOL 8
 
 class threadpool {
 	/*
-	¼ò»¯ÁË typedef µÄÓÃ·¨¡£
-	function<void()> ¿ÉÒÔÈÏÎªÊÇÒ»¸öº¯ÊıÀàĞÍ£¬½ÓÊÜÈÎÒâÔ­ĞÍÊÇ void() µÄº¯Êı£¬»òÊÇº¯Êı¶ÔÏó£¬»òÊÇÄäÃûº¯Êı¡£
-	void() ÒâË¼ÊÇ²»´ø²ÎÊı£¬Ã»ÓĞ·µ»ØÖµ¡£
+	ç®€åŒ–äº† typedef çš„ç”¨æ³•ã€‚
+	function<void()> å¯ä»¥è®¤ä¸ºæ˜¯ä¸€ä¸ªå‡½æ•°ç±»å‹ï¼Œæ¥å—ä»»æ„åŸå‹æ˜¯ void() çš„å‡½æ•°ï¼Œæˆ–æ˜¯å‡½æ•°å¯¹è±¡ï¼Œæˆ–æ˜¯åŒ¿åå‡½æ•°ã€‚
+	void() æ„æ€æ˜¯ä¸å¸¦å‚æ•°ï¼Œæ²¡æœ‰è¿”å›å€¼ã€‚
 	*/
-	using Task = function<void()>; //¶¨ÒåÀàĞÍ
-	vector<thread> _pool;          //Ïß³Ì³Ø
-	queue<Task> _tasks;           //ÈÎÎñ¶ÓÁĞ
-	mutex _lock;                  //Í¬²½
-	condition_variable _cond;     //Ìõ¼ş×èÈû
-	atomic<bool> _run{ true };    //Ïß³Ì³ØÊÇ·ñÖ´ĞĞ
-	atomic<int> _idleNum{ 0 };   //¿ÕÏĞÏß³ÌÊıÁ¿
+	using Task = function<void()>; //å®šä¹‰ç±»å‹
+	vector<thread> _pool;          //çº¿ç¨‹æ± 
+	queue<Task> _tasks;           //ä»»åŠ¡é˜Ÿåˆ—
+	mutex _lock;                  //åŒæ­¥
+	condition_variable _cond;     //æ¡ä»¶é˜»å¡
+	atomic<bool> _run{ true };    //çº¿ç¨‹æ± æ˜¯å¦æ‰§è¡Œ
+	atomic<int> _idleNum{ 0 };   //ç©ºé—²çº¿ç¨‹æ•°é‡
 
 public:
 	threadpool(int size = 4) { addThread(size); };
 	~threadpool() {
 		_run = false;
 		/// <summary>
-		/// condition_variable cv; Ìõ¼ş±äÁ¿£¬ ĞèÒªÅäºÏ unique_lock Ê¹ÓÃ£»
-		/// unique_lock Ïà±È lock_guard µÄºÃ´¦ÊÇ£º¿ÉÒÔËæÊ± unlock() ºÍ lock()¡£ 
-		/// cv.wait() Ö®Ç°ĞèÒª³ÖÓĞ mutex£¬
-		/// wait ±¾Éí»á unlock() mutex£¬Èç¹ûÌõ¼şÂú×ãÔò»áÖØĞÂ³ÖÓĞ mutex¡£
+		/// condition_variable cv; æ¡ä»¶å˜é‡ï¼Œ éœ€è¦é…åˆ unique_lock ä½¿ç”¨ï¼›
+		/// unique_lock ç›¸æ¯” lock_guard çš„å¥½å¤„æ˜¯ï¼šå¯ä»¥éšæ—¶ unlock() å’Œ lock()ã€‚ 
+		/// cv.wait() ä¹‹å‰éœ€è¦æŒæœ‰ mutexï¼Œ
+		/// wait æœ¬èº«ä¼š unlock() mutexï¼Œå¦‚æœæ¡ä»¶æ»¡è¶³åˆ™ä¼šé‡æ–°æŒæœ‰ mutexã€‚
 		/// </summary>
 		_cond.notify_all();
 		for (auto& th : _pool) {
-			//th.detach(); // ÈÃÏß³Ì¡°×ÔÉú×ÔÃğ¡±
+			//th.detach(); // è®©çº¿ç¨‹â€œè‡ªç”Ÿè‡ªç­â€
 			if (th.joinable()) {
 				/// <summary>
-				/// ×îºóÏß³Ì³ØÎö¹¹µÄÊ±ºò,join() ¿ÉÒÔµÈ´ıÈÎÎñ¶¼Ö´ĞĞÍêÔÚ½áÊø,ºÜ°²È«!
+				/// æœ€åçº¿ç¨‹æ± ææ„çš„æ—¶å€™,join() å¯ä»¥ç­‰å¾…ä»»åŠ¡éƒ½æ‰§è¡Œå®Œåœ¨ç»“æŸ,å¾ˆå®‰å…¨!
 				/// </summary>
 				th.join();
 			}
@@ -50,9 +51,9 @@ public:
 
 public:
 	/// <summary>
-	/// commit ·½·¨ÊÇ²»ÊÇÂÔÆæİâ£¡¿ÉÒÔ´øÈÎÒâ¶àµÄ²ÎÊı£¬µÚÒ»¸ö²ÎÊıÊÇ f£¬ºóÃæÒÀ´ÎÊÇº¯Êı f µÄ²ÎÊı
-	/// (×¢Òâ:²ÎÊıÒª´«struct/classµÄ»°,½¨ÒéÓÃpointer,Ğ¡ĞÄ±äÁ¿µÄ×÷ÓÃÓò)£¡ 
-	/// ¿É±ä²ÎÊıÄ£°åÊÇ c++11 µÄÒ»´óÁÁµã£¬¹»ÁÁ£¡ÖÁÓÚÎªÊ²Ã´ÊÇ Arg¡­ ºÍ arg¡­ £¬ÒòÎª¹æ¶¨¾ÍÊÇÕâÃ´ÓÃµÄ£¡
+	/// commit æ–¹æ³•æ˜¯ä¸æ˜¯ç•¥å¥‡è‘©ï¼å¯ä»¥å¸¦ä»»æ„å¤šçš„å‚æ•°ï¼Œç¬¬ä¸€ä¸ªå‚æ•°æ˜¯ fï¼Œåé¢ä¾æ¬¡æ˜¯å‡½æ•° f çš„å‚æ•°
+	/// (æ³¨æ„:å‚æ•°è¦ä¼ struct/classçš„è¯,å»ºè®®ç”¨pointer,å°å¿ƒå˜é‡çš„ä½œç”¨åŸŸ)ï¼ 
+	/// å¯å˜å‚æ•°æ¨¡æ¿æ˜¯ c++11 çš„ä¸€å¤§äº®ç‚¹ï¼Œå¤Ÿäº®ï¼è‡³äºä¸ºä»€ä¹ˆæ˜¯ Argâ€¦ å’Œ argâ€¦ ï¼Œå› ä¸ºè§„å®šå°±æ˜¯è¿™ä¹ˆç”¨çš„ï¼
 	/// </summary>
 	template<class F,class... Args>
 	auto commit(F&& f, Args&&... args) ->future<decltype(f(args...))>
@@ -61,33 +62,33 @@ public:
 			throw runtime_error("commit on threadpool is stopped");
 		}
 		/// <summary>
-		/// delctype(expr) ÓÃÀ´ÍÆ¶Ï expr µÄÀàĞÍ£¬ºÍ auto ÊÇÀàËÆµÄ£¬Ïàµ±ÓÚÀàĞÍÕ¼Î»·û£¬
-		/// Õ¼¾İÒ»¸öÀàĞÍµÄÎ»ÖÃ£»auto f(A a, B b) -> decltype(a+b) ÊÇÒ»ÖÖÓÃ·¨£¬
-		/// ²»ÄÜĞ´×÷ decltype(a+b) f(A a, B b)£¬ÎªÉ¶£¿£¡ c++ ¾ÍÊÇÕâÃ´¹æ¶¨µÄ£¡
+		/// delctype(expr) ç”¨æ¥æ¨æ–­ expr çš„ç±»å‹ï¼Œå’Œ auto æ˜¯ç±»ä¼¼çš„ï¼Œç›¸å½“äºç±»å‹å ä½ç¬¦ï¼Œ
+		/// å æ®ä¸€ä¸ªç±»å‹çš„ä½ç½®ï¼›auto f(A a, B b) -> decltype(a+b) æ˜¯ä¸€ç§ç”¨æ³•ï¼Œ
+		/// ä¸èƒ½å†™ä½œ decltype(a+b) f(A a, B b)ï¼Œä¸ºå•¥ï¼Ÿï¼ c++ å°±æ˜¯è¿™ä¹ˆè§„å®šçš„ï¼
 		/// </summary>
 		using retType = decltype(f(args...));
 
 
 		/// <summary>
-		/// commit Ö±½ÓÊ¹ÓÃÖÇÄÜµ÷ÓÃstdcallº¯Êı£¬µ«ÓĞÁ½ÖÖ·½·¨¿ÉÒÔÊµÏÖµ÷ÓÃÀà³ÉÔ±£¬
-		/// Ò»ÖÖÊÇÊ¹ÓÃ bind£º .commit(std::bind(&Dog::sayHello, &dog))£» 
-		/// Ò»ÖÖÊÇÓÃ mem_fn£º .commit(std::mem_fn(&Dog::sayHello), &dog)£»
+		/// commit ç›´æ¥ä½¿ç”¨æ™ºèƒ½è°ƒç”¨stdcallå‡½æ•°ï¼Œä½†æœ‰ä¸¤ç§æ–¹æ³•å¯ä»¥å®ç°è°ƒç”¨ç±»æˆå‘˜ï¼Œ
+		/// ä¸€ç§æ˜¯ä½¿ç”¨ bindï¼š .commit(std::bind(&Dog::sayHello, &dog))ï¼› 
+		/// ä¸€ç§æ˜¯ç”¨ mem_fnï¼š .commit(std::mem_fn(&Dog::sayHello), &dog)ï¼›
 		/// </summary>
-		/// make_shared ÓÃÀ´¹¹Ôì shared_ptr ÖÇÄÜÖ¸Õë¡£
-		/// ÓÃ·¨´óÌåÊÇ shared_ptr p = make_shared(4) È»ºó *p == 4 ¡£
-		/// ÖÇÄÜÖ¸ÕëµÄºÃ´¦¾ÍÊÇ£¬ ×Ô¶¯ delete £¡
+		/// make_shared ç”¨æ¥æ„é€  shared_ptr æ™ºèƒ½æŒ‡é’ˆã€‚
+		/// ç”¨æ³•å¤§ä½“æ˜¯ shared_ptr p = make_shared(4) ç„¶å *p == 4 ã€‚
+		/// æ™ºèƒ½æŒ‡é’ˆçš„å¥½å¤„å°±æ˜¯ï¼Œ è‡ªåŠ¨ delete ï¼
 		auto task = make_shared<packaged_task<retType()>>(
 			/// <summary>
-			/// bind º¯Êı£¬½ÓÊÜº¯Êı f ºÍ²¿·Ö²ÎÊı£¬·µ»ØcurryingºóµÄÄäÃûº¯Êı£¬
-			/// Æ©Èç bind(add, 4) ¿ÉÒÔÊµÏÖÀàËÆ add4 µÄº¯Êı£¡
-			/// forward() º¯Êı£¬ÀàËÆÓÚ move() º¯Êı£¬ºóÕßÊÇ½«²ÎÊıÓÒÖµ»¯£¬Ç°ÕßÊÇ¡­ Ö×Ã´ËµÄØ£¿
-			/// ´ó¸ÅÒâË¼¾ÍÊÇ£º²»¸Ä±ä×î³õ´«ÈëµÄÀàĞÍµÄÒıÓÃÀàĞÍ(×óÖµ»¹ÊÇ×óÖµ£¬ÓÒÖµ»¹ÊÇÓÒÖµ)£»
+			/// bind å‡½æ•°ï¼Œæ¥å—å‡½æ•° f å’Œéƒ¨åˆ†å‚æ•°ï¼Œè¿”å›curryingåçš„åŒ¿åå‡½æ•°ï¼Œ
+			/// è­¬å¦‚ bind(add, 4) å¯ä»¥å®ç°ç±»ä¼¼ add4 çš„å‡½æ•°ï¼
+			/// forward() å‡½æ•°ï¼Œç±»ä¼¼äº move() å‡½æ•°ï¼Œåè€…æ˜¯å°†å‚æ•°å³å€¼åŒ–ï¼Œå‰è€…æ˜¯â€¦ è‚¿ä¹ˆè¯´å‘¢ï¼Ÿ
+			/// å¤§æ¦‚æ„æ€å°±æ˜¯ï¼šä¸æ”¹å˜æœ€åˆä¼ å…¥çš„ç±»å‹çš„å¼•ç”¨ç±»å‹(å·¦å€¼è¿˜æ˜¯å·¦å€¼ï¼Œå³å€¼è¿˜æ˜¯å³å€¼)ï¼›
 			/// </summary>
 			bind(forward<F>(f),forward<Args>(args)...)
 			);
 		/// <summary>
-		/// packaged_task ¾ÍÊÇÈÎÎñº¯ÊıµÄ·â×°Àà£¬Í¨¹ı get_future »ñÈ¡ future £¬ 
-		/// È»ºóÍ¨¹ı future ¿ÉÒÔ»ñÈ¡º¯ÊıµÄ·µ»ØÖµ(future.get())£»
+		/// packaged_task å°±æ˜¯ä»»åŠ¡å‡½æ•°çš„å°è£…ç±»ï¼Œé€šè¿‡ get_future è·å– future ï¼Œ 
+		/// ç„¶åé€šè¿‡ future å¯ä»¥è·å–å‡½æ•°çš„è¿”å›å€¼(future.get())ï¼›
 		/// </summary>
 		future<retType> future = task->get_future();
 		{
@@ -96,49 +97,49 @@ public:
 				(*task)();
 			});
 		}
-		_cond.notify_one(); // »½ĞÑÒ»¸öÏß³ÌÖ´ĞĞ
+		_cond.notify_one(); // å”¤é†’ä¸€ä¸ªçº¿ç¨‹æ‰§è¡Œ
 
 		return future;
 	}
 
-	//¿ÕÏĞÏß³ÌÊıÁ¿
+	//ç©ºé—²çº¿ç¨‹æ•°é‡
 	int idlCount() { return _idleNum; }
-	//Ïß³ÌÊıÁ¿
+	//çº¿ç¨‹æ•°é‡
 	int thrCount() { return _pool.size(); }
 
-	//Ìí¼ÓÖ¸¶¨ÊıÁ¿µÄÏß³Ì
+	//æ·»åŠ æŒ‡å®šæ•°é‡çš„çº¿ç¨‹
 	void addThread(unsigned short size)
 	{
 		for (; _pool.size() < MAX_NUM_THREADPOOL && size > 0; --size)
-		{   //Ôö¼ÓÏß³ÌÊıÁ¿,µ«²»³¬¹ı Ô¤¶¨ÒåÊıÁ¿ THREADPOOL_MAX_NUM
+		{   //å¢åŠ çº¿ç¨‹æ•°é‡,ä½†ä¸è¶…è¿‡ é¢„å®šä¹‰æ•°é‡ THREADPOOL_MAX_NUM
 
 			/// <summary>
-			/// pool.emplace_back([this]{¡­}) ºÍ pool.push_back([this]{¡­}) ¹¦ÄÜÒ»Ñù£¬
-			/// Ö»²»¹ıÇ°ÕßĞÔÄÜ»á¸üºÃ
-			//	¹¹ÔìÁËÒ»¸öÏß³Ì¶ÔÏó£¬Ö´ĞĞº¯ÊıÊÇÀ­Ä·´ïÄäÃûº¯Êı £»
-			/// ÄäÃûº¯Êı£º [this]{¡­} ²»¶àËµ¡£[] ÊÇ²¶×½Æ÷£¬this ÊÇÒıÓÃÓòÍâµÄ±äÁ¿ thisÖ¸Õë£¬ 
-			/// ÄÚ²¿Ê¹ÓÃËÀÑ­»·, ÓÉ_cond.wait(lock,[this]{¡­}) À´×èÈûÏß³Ì£»
+			/// pool.emplace_back([this]{â€¦}) å’Œ pool.push_back([this]{â€¦}) åŠŸèƒ½ä¸€æ ·ï¼Œ
+			/// åªä¸è¿‡å‰è€…æ€§èƒ½ä¼šæ›´å¥½
+			//	æ„é€ äº†ä¸€ä¸ªçº¿ç¨‹å¯¹è±¡ï¼Œæ‰§è¡Œå‡½æ•°æ˜¯æ‹‰å§†è¾¾åŒ¿åå‡½æ•° ï¼›
+			/// åŒ¿åå‡½æ•°ï¼š [this]{â€¦} ä¸å¤šè¯´ã€‚[] æ˜¯æ•æ‰å™¨ï¼Œthis æ˜¯å¼•ç”¨åŸŸå¤–çš„å˜é‡ thisæŒ‡é’ˆï¼Œ 
+			/// å†…éƒ¨ä½¿ç”¨æ­»å¾ªç¯, ç”±_cond.wait(lock,[this]{â€¦}) æ¥é˜»å¡çº¿ç¨‹ï¼›
 			/// </summary>
-			_pool.emplace_back([this] { //¹¤×÷Ïß³Ìº¯Êı
+			_pool.emplace_back([this] { //å·¥ä½œçº¿ç¨‹å‡½æ•°
 				while (_run)
 				{
-					Task task; // »ñÈ¡Ò»¸ö´ıÖ´ĞĞµÄ task
+					Task task; // è·å–ä¸€ä¸ªå¾…æ‰§è¡Œçš„ task
 					{
-						// unique_lock Ïà±È lock_guard µÄºÃ´¦ÊÇ£º¿ÉÒÔËæÊ± unlock() ºÍ lock()
-						///lock_guard ÊÇ mutex µÄ stack ·â×°Àà£¬¹¹ÔìµÄÊ±ºò lock()£¬Îö¹¹µÄÊ±ºò unlock()£¬
-						///ÊÇ c++ RAII µÄ idea£»
+						// unique_lock ç›¸æ¯” lock_guard çš„å¥½å¤„æ˜¯ï¼šå¯ä»¥éšæ—¶ unlock() å’Œ lock()
+						///lock_guard æ˜¯ mutex çš„ stack å°è£…ç±»ï¼Œæ„é€ çš„æ—¶å€™ lock()ï¼Œææ„çš„æ—¶å€™ unlock()ï¼Œ
+						///æ˜¯ c++ RAII çš„ ideaï¼›
 						unique_lock<mutex> lock{ _lock };
 
 						_cond.wait(lock, [this] {
 							return !_run || !_tasks.empty();
-						}); // wait Ö±µ½ÓĞ task
+						}); // wait ç›´åˆ°æœ‰ task
 						if (!_run && _tasks.empty())
 							return;
-						task = move(_tasks.front()); // °´ÏÈ½øÏÈ³ö´Ó¶ÓÁĞÈ¡Ò»¸ö task
+						task = move(_tasks.front()); // æŒ‰å…ˆè¿›å…ˆå‡ºä»é˜Ÿåˆ—å–ä¸€ä¸ª task
 						_tasks.pop();
 					}
 					_idleNum--;
-					task();//Ö´ĞĞÈÎÎñ
+					task();//æ‰§è¡Œä»»åŠ¡
 					_idleNum++;
 				}
 			});

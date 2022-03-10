@@ -1,6 +1,5 @@
 ﻿#include <cstdio>
-//#include "ThreadPool.hpp"
-#include "MyThreadPool.hpp"
+#include "ThreadPool.hpp"
 #include <iostream>
 
 
@@ -45,7 +44,7 @@ public:
 
 int main()
 try {
-	std::MyThreadPool executor{50};
+	std::threadpool executor{50};
 	A a;
 	std::future<void> ff = executor.commit(fun1, 0);
 	std::future<int> fg = executor.commit(gfun{}, 0);
@@ -53,9 +52,6 @@ try {
 	std::future<std::string> gh = executor.commit(A::Bfun, 9998, "mult args", 123);
 	std::future<std::string> fh = executor.commit([]()->std::string { std::cout << "hello, fh !  " << std::this_thread::get_id() << std::endl; return "hello,fh ret !"; });
 	std::cout<<fg.get()<<std::endl;
-	
-	std::this_thread::sleep_for(std::chrono::seconds(10));
-	std::cout << fg.get() << std::endl;
 	return 0;
 	//std::cout << " =======  sleep ========= " << std::this_thread::get_id() << std::endl;
 	//std::this_thread::sleep_for(std::chrono::microseconds(900));
